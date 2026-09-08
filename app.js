@@ -1,5 +1,5 @@
 import { brazilStates, campaign } from "./app-config.js";
-import { formatPhone, hasCatalog, isValidPhone, prizeIndex } from "./logic.js";
+import { formatPhone, hasCatalog, isValidPhone } from "./logic.js";
 import { leadStore } from "./storage.js";
 import { wheelScene, playSpin, anticipation, celebrate, toggleSound, soundEnabled } from "./celebration.js";
 
@@ -89,12 +89,12 @@ async function submitLead(event) {
 }
 
 function renderDuplicate(lead) {
-  const action = lead.prize ? "Ver meu código" : "Continuar para a roda";
-  shell(`<div class="hero narrow result"><p class="eyebrow">SEU PASS JÁ ESTÁ ATIVO</p><h1>Que bom ver você<br><em>por aqui de novo.</em></h1><p class="intro">Este WhatsApp já recebeu um PIROMAX PASS nesta ação. Cada participante pode girar uma vez.</p></div><div class="ticket-mini"><span>CÓDIGO</span><strong>${escape(lead.code)}</strong></div><button class="button primary" data-action="resume">${action} <span>→</span></button><button class="button secondary" data-action="home">Voltar ao início</button>`);
+  const action = lead.prize ? "Ver meu presente" : "Continuar para a roda";
+  shell(`<div class="hero narrow result"><p class="eyebrow">SEU PASS JÁ ESTÁ ATIVO</p><h1>Que bom ver você<br><em>por aqui de novo.</em></h1><p class="intro">Este cadastro já participou desta ação. Cada pessoa pode girar uma vez.</p></div><button class="button primary" data-action="resume">${action} <span>→</span></button><button class="button secondary" data-action="home">Voltar ao início</button>`);
 }
 
 function renderPass(lead) {
-  shell(`<div class="progress done"><i></i><i></i><i></i></div><div class="hero narrow result"><p class="eyebrow">PASS ATIVADO</p><h1>Pronto para<br><em>girar?</em></h1><p class="intro">Seu presente será revelado na Roda Piromax.</p></div><div class="ticket-mini pre-spin-code"><span>SEU CÓDIGO</span><strong>${escape(lead.code)}</strong></div><div class="spin-callout"><span>✦</span><div><strong>Agora é sua vez de girar.</strong><small>Guarde este código para a retirada.</small></div></div><button class="button primary" data-action="wheel">Ir para a roda <span>→</span></button>`, { compact: true });
+  shell(`<div class="progress done"><i></i><i></i><i></i></div><div class="hero narrow result"><p class="eyebrow">PASS ATIVADO</p><h1>Pronto para<br><em>girar?</em></h1><p class="intro">Seu presente será revelado na Roda Piromax.</p></div><div class="spin-callout"><span>✦</span><div><strong>Agora é sua vez de girar.</strong><small>Prepare-se para a revelação.</small></div></div><button class="button primary" data-action="wheel">Ir para a roda <span>→</span></button>`, { compact: true });
 }
 
 function wheelMarkup() { return wheelScene(campaign.prizes); }
@@ -116,7 +116,7 @@ async function spinWheel() {
     if (!record?.prize) throw new Error("Resultado indisponível");
     currentLead = record;
     button.textContent = "Seu presente está chegando…";
-    await playSpin(document.querySelector(".wheel"), prizeIndex(record.prize.id), campaign.prizes.length);
+    await playSpin(document.querySelector(".wheel"), Math.floor(Math.random() * 8), 8);
     await anticipation();
     renderTicket(record, { consumer: record.consumer });
     celebrate();
@@ -134,16 +134,18 @@ function renderTicket(lead, { consumer = false } = {}) {
   const prize = { ...lead.prize, ...campaign.prizes.find((item) => item.id === lead.prize.id) };
   const extra = lead.catalog ? '<div class="ticket-line"><span>+ catálogo Piromax</span><b>incluído</b></div>' : "";
   const bundle = consumer || prize.id === "cup" ? "Copo Piromax" : `Copo Piromax + ${escape(prize.shortName)}`;
-  const visual = prize.video
+  const prizeVisual = prize.video
     ? `<figure class="reveal-photo"><video src="${escape(prize.video)}" autoplay muted loop playsinline controls preload="metadata" aria-label="Apresentação 3D do copo Piromax"></video><figcaption>${escape(prize.name)}</figcaption></figure>`
     : prize.image
     ? `<figure class="reveal-photo"><img src="${escape(prize.image)}" alt="${escape(prize.name)}" /><figcaption>${escape(prize.name)}</figcaption></figure>`
     : `<figure class="reveal-photo no-photo"><span class="gift-symbol" aria-hidden="true">${prize.icon}</span><figcaption>${escape(prize.name)}</figcaption></figure>`;
-  shell(`<div class="hero narrow reveal-heading"><p class="eyebrow">SEU PRESENTE PIROMAX</p><h1 tabindex="-1">Esse momento<br><em>vai com você.</em></h1><p class="intro">${prize.id === "cup" ? "Seu copo Piromax está aqui." : "Um copo e um presente especial para marcar sua visita."}</p></div>
-    ${visual}
-    ${prize.id !== "cup" ? '<div class="included-cup"><img src="assets/copo-piromax.png" alt="Copo Piromax incluído no presente" /><div><span>TAMBÉM É SEU</span><strong>+ 1 copo Piromax</strong></div></div>' : ""}
-    <section class="ticket reveal-ticket" aria-label="Comprovante de retirada"><div class="ticket-top"><span>PIROMAX PASS · FENAPI</span><i>✦</i></div><div class="ticket-prize"><div><small>VOCÊ LEVA</small><strong>${bundle}</strong></div></div>${extra}<div class="ticket-code"><small>APRESENTE ESTE CÓDIGO À EQUIPE</small><strong>${escape(lead.code)}</strong></div><div class="ticket-bottom"><span>${escape(profileName(lead.profile))}</span><span>${consumer ? "Atendimento no stand" : lead.redeemedAt ? "Retirado" : "Aguardando retirada"}</span></div></section>
-    <p class="reveal-note">${consumer ? "Entregue o copo ao visitante antes de iniciar o próximo atendimento." : "Confira os itens com o visitante e use o código para registrar a retirada na operação."}</p><button class="button secondary" data-action="home">Próximo visitante</button>`, { compact: true });
+  const cupVisual = '<figure class="reveal-photo"><img src="assets/copo-piromax.png" alt="Copo Piromax" /><figcaption>Copo Piromax</figcaption></figure>';
+  const gifts = prize.id === "cup" ? prizeVisual : `<div class="reveal-pair">${prizeVisual}${cupVisual}</div>`;
+  shell(`<div class="hero narrow reveal-heading"><p class="eyebrow">SEU PRESENTE PIROMAX</p><h1 tabindex="-1">Esse momento<br><em>vai com você.</em></h1><p class="intro">${prize.id === "cup" ? "Seu copo Piromax está aqui." : "Dois presentes para marcar sua visita."}</p></div>
+    ${gifts}
+    <section class="ticket reveal-ticket" aria-label="Resultado do presente"><div class="ticket-top"><span>PIROMAX PASS · FENAPI</span><i>✦</i></div><div class="ticket-prize"><div><small>VOCÊ LEVA</small><strong>${bundle}</strong></div></div>${extra}<div class="ticket-bottom"><span>${escape(profileName(lead.profile))}</span><span>Entrega imediata no stand</span></div></section>
+    <figure class="result-instagram"><img src="assets/qr-instagram-piromax.png" alt="QR Code do Instagram da Piromax" /><figcaption>Siga @piromaxfogos e continue vivendo esse momento.</figcaption></figure>
+    <p class="reveal-note">Confira os itens, entregue o presente e inicie o próximo atendimento.</p><button class="button secondary" data-action="home">Próximo visitante</button>`, { compact: true });
 }
 
 function renderOperationGate() {
