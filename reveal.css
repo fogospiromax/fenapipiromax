@@ -48,6 +48,18 @@ body{min-height:100svh;min-height:100dvh;overscroll-behavior-y:none}
 .screen{width:min(100%,560px);min-height:100svh;min-height:100dvh;padding-top:max(24px,env(safe-area-inset-top));padding-right:max(22px,env(safe-area-inset-right));padding-bottom:max(22px,env(safe-area-inset-bottom));padding-left:max(22px,env(safe-area-inset-left))}
 .button,.profile-card,.back,.sound-toggle,.skip-reveal{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
 input,select,.button{font-size:max(16px,1rem)}
+.step-progress{height:4px;margin-top:25px;border-radius:10px;background:#302d35;overflow:hidden}
+.step-progress i{display:block;width:16.666%;height:100%;border-radius:inherit;background:linear-gradient(90deg,#ffb438,#ef4431,#a933b4);transition:width .3s ease}
+.step-count{margin:8px 0 0;text-align:right;color:#aaa8ae;font-size:10px;letter-spacing:.1em}
+.step-form{min-height:190px}
+.form-step[hidden],.step-actions button[hidden]{display:none}
+.form-step{animation:rise .28s ease-out}
+.form-step label,.form-step legend{font-size:15px}
+.form-step input,.form-step select{min-height:58px;margin-top:5px}
+.step-actions{display:grid;grid-template-columns:1fr 2fr;gap:10px;margin-top:8px}
+.step-actions .button{margin-top:0}
+.step-actions:has(#step-back[hidden]){grid-template-columns:1fr}
+html,body{touch-action:pan-x pan-y}
 @media(max-width:430px){
   .hero{padding-top:clamp(44px,8svh,72px)}
   .hero.narrow{padding-top:30px}

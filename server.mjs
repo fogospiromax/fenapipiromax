@@ -14,7 +14,7 @@ const port = Number(process.env.PORT || 4173);
 const dataDirectory = process.env.PIROMAX_DATA_DIR || join(process.cwd(), "data");
 const databasePath = join(dataDirectory, "piromax-pass.json");
 const operationPin = process.env.PIROMAX_OPERATION_PIN || campaign.operationPin;
-const mime = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8", ".png": "image/png", ".mp4": "video/mp4", ".webp": "image/webp", ".json": "application/json; charset=utf-8" };
+const mime = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8", ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".mp4": "video/mp4", ".webp": "image/webp", ".json": "application/json; charset=utf-8" };
 
 async function data() {
   if (!existsSync(databasePath)) return { leads: [], inventory: {} };
@@ -31,6 +31,16 @@ const body = async (request) => {
 };
 const isOperation = (request) => request.headers["x-operation-pin"] === operationPin;
 const findPrize = (id) => campaign.prizes.find((prize) => prize.id === id);
+const identity = (value) => String(value || "").trim().toLocaleLowerCase("pt-BR");
+const used = (database, prizeId) => database.inventory[prizeId] || 0;
+const reserved = (database, prizeId) => database.leads.filter((lead) => !lead.prize && lead.assignedPrize && (prizeId === "cup" || lead.assignedPrize.id === prizeId)).length;
+const available = (database, prize) => {
+  if (!prize) return false;
+  const ownAvailable = prize.stock === null || used(database, prize.id) + reserved(database, prize.id) < prize.stock;
+  const cup = findPrize("cup");
+  const cupAvailable = prize.id === "cup" || cup?.stock === null || used(database, "cup") + reserved(database, "cup") < cup.stock;
+  return ownAvailable && cupAvailable;
+};
 
 const server = createServer(async (request, response) => {
   const url = new URL(request.url, `http://${request.headers.host}`);
@@ -38,21 +48,38 @@ const server = createServer(async (request, response) => {
 
   if (url.pathname === "/api/health") return json(response, 200, { ok: true, campaign: campaign.id });
   if (url.pathname === "/api/admin/check") return json(response, isOperation(request) ? 200 : 401, { ok: isOperation(request) });
+  const activation = url.pathname.match(/^\/api\/activation\/(\d{3})$/);
+  if (activation && method === "GET") {
+    const database = await data(); const prize = findPrize(campaign.activationCodes?.[activation[1]]);
+    return json(response, 200, { available: available(database, prize) });
+  }
   if (url.pathname === "/api/leads" && method === "GET") {
     if (!isOperation(request)) return json(response, 401, { error: "Operação não autorizada" });
     const database = await data(); return json(response, 200, database);
   }
   if (url.pathname === "/api/leads" && method === "POST") {
     const input = await body(request); const database = await data(); const phoneNormalized = normalizePhone(input.phone);
-    const existing = database.leads.find((lead) => lead.phoneNormalized === phoneNormalized);
+    const existing = phoneNormalized
+      ? database.leads.find((lead) => lead.phoneNormalized === phoneNormalized)
+      : input.directCustomer === "yes"
+        ? database.leads.find((lead) => lead.profile === input.profile && lead.directCustomer === "yes" && identity(lead.name) === identity(input.name) && identity(lead.company) === identity(input.company))
+        : null;
     if (existing) return json(response, 200, { record: existing, duplicate: true });
+    const assignedPrize = findPrize(campaign.activationCodes?.[input.activationCode]);
+    if (!assignedPrize || !available(database, assignedPrize)) return json(response, 409, { error: "Código indisponível: estoque esgotado" });
     const record = {
       id: randomUUID(), code: createCode(input.profile), profile: input.profile, name: String(input.name || "").trim(),
       phone: String(input.phone || "").trim(), phoneNormalized, city: String(input.city || "").trim(), state: input.state,
-      company: String(input.company || "").trim(), existingCustomer: input.existingCustomer, catalog: hasCatalog(input),
-      assignedPrize: findPrize(campaign.activationCodes?.[input.activationCode]), prize: null, spunAt: null, redeemedAt: null, createdAt: new Date().toISOString(), source: campaign.id
+      company: String(input.company || "").trim(), existingCustomer: input.existingCustomer, directCustomer: input.directCustomer, catalog: hasCatalog(input),
+      assignedPrize, prize: null, spunAt: null, redeemedAt: null, createdAt: new Date().toISOString(), source: campaign.id
     };
     database.leads.push(record); await save(database); return json(response, 201, { record, duplicate: false });
+  }
+  if (url.pathname === "/api/consumers" && method === "POST") {
+    const input = await body(request); const database = await data(); const cup = findPrize("cup");
+    if (!available(database, cup)) return json(response, 409, { error: "Estoque de copos esgotado" });
+    const record = { id: randomUUID(), code: createCode("consumer"), profile: "consumer", consumer: true, name: String(input.name || "").trim(), phone: "", city: "", state: "", company: "", existingCustomer: "", catalog: false, assignedPrize: cup, prize: null, spunAt: null, redeemedAt: null, createdAt: new Date().toISOString(), source: campaign.id };
+    database.leads.push(record); await save(database); return json(response, 201, { record });
   }
   const preparation = url.pathname.match(/^\/api\/leads\/([^/]+)\/prepare$/);
   if (preparation && method === "POST") {
@@ -67,7 +94,9 @@ const server = createServer(async (request, response) => {
     if (!record) return json(response, 404, { error: "PASS não encontrado" });
     if (record.prize) return json(response, 200, { record });
     const prize = record.assignedPrize || choosePrize(campaign.prizes, database.inventory);
+    if (!record.assignedPrize && !available(database, prize)) return json(response, 409, { error: "Brinde esgotado" });
     record.prize = prize; record.spunAt = new Date().toISOString(); database.inventory[prize.id] = (database.inventory[prize.id] || 0) + 1;
+    if (prize.id !== "cup") database.inventory.cup = (database.inventory.cup || 0) + 1;
     await save(database); return json(response, 200, { record });
   }
   const assignment = url.pathname.match(/^\/api\/leads\/([^/]+)\/assignment$/);
@@ -76,6 +105,8 @@ const server = createServer(async (request, response) => {
     const input = await body(request); const database = await data(); const record = database.leads.find((lead) => lead.id === assignment[1]);
     const prize = findPrize(input.prizeId);
     if (!record || record.prize || !prize) return json(response, 422, { error: "Prêmio não pode ser preparado" });
+    const previous = record.assignedPrize; record.assignedPrize = null;
+    if (!available(database, prize)) { record.assignedPrize = previous; return json(response, 422, { error: "Prêmio esgotado" }); }
     record.assignedPrize = prize; await save(database); return json(response, 200, { record });
   }
   const redemption = url.pathname.match(/^\/api\/leads\/([^/]+)\/redeem$/);

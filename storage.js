@@ -18,22 +18,23 @@ export const localStore = {
   inventory: () => read(KEYS.inventory, {}),
   findByPhone(phone) {
     const normalized = normalizePhone(phone);
-    return this.list().find((lead) => lead.phoneNormalized === normalized);
+    return normalized ? this.list().find((lead) => lead.phoneNormalized === normalized) : null;
   },
   createB2b(data) {
-    const duplicate = this.findByPhone(data.phone);
+    const duplicate = this.findByPhone(data.phone) || (data.directCustomer === "yes" ? this.list().find((lead) => lead.profile === data.profile && lead.directCustomer === "yes" && lead.name?.trim().toLocaleLowerCase("pt-BR") === data.name.trim().toLocaleLowerCase("pt-BR") && lead.company?.trim().toLocaleLowerCase("pt-BR") === data.company.trim().toLocaleLowerCase("pt-BR")) : null);
     if (duplicate) return { record: duplicate, duplicate: true };
     const record = {
       id: crypto.randomUUID?.() || `${Date.now()}-${Math.random()}`,
       code: createCode(data.profile),
       profile: data.profile,
       name: data.name.trim(),
-      phone: data.phone.trim(),
+      phone: (data.phone || "").trim(),
       phoneNormalized: normalizePhone(data.phone),
-      city: data.city.trim(),
-      state: data.state,
+      city: (data.city || "").trim(),
+      state: data.state || "",
       company: data.company.trim(),
       existingCustomer: data.existingCustomer,
+      directCustomer: data.directCustomer,
       catalog: false,
       assignedPrize: campaign.activationCodes?.[data.activationCode] ? campaign.prizes.find((prize) => prize.id === campaign.activationCodes[data.activationCode]) : null,
       prize: null,
@@ -48,15 +49,18 @@ export const localStore = {
     write(KEYS.leads, leads);
     return { record, duplicate: false };
   },
-  createConsumer() {
-    return {
+  createConsumer(name) {
+    const record = {
       id: crypto.randomUUID?.() || `${Date.now()}-${Math.random()}`,
       code: createCode("consumer"),
       profile: "consumer",
-      prize: { id: "cup", name: "Copo Piromax", shortName: "Copo Piromax", icon: "🥤" },
+      consumer: true,
+      name: name.trim(), phone: "", city: "", state: "", company: "", existingCustomer: "",
+      assignedPrize: campaign.prizes.find((prize) => prize.id === "cup"), prize: null,
       catalog: false,
       createdAt: new Date().toISOString()
     };
+    const leads = this.list(); leads.push(record); write(KEYS.leads, leads); return record;
   },
   saveSpin(id, prize) {
     const leads = this.list();
@@ -67,6 +71,7 @@ export const localStore = {
     leads[index].spunAt = new Date().toISOString();
     const inventory = this.inventory();
     inventory[selectedPrize.id] = (inventory[selectedPrize.id] || 0) + 1;
+    if (selectedPrize.id !== "cup") inventory.cup = (inventory.cup || 0) + 1;
     write(KEYS.leads, leads);
     write(KEYS.inventory, inventory);
     return leads[index];
@@ -101,7 +106,7 @@ async function request(path, options = {}) {
     headers: { "Content-Type": "application/json", ...(campaign.api.adminToken ? { "X-Operation-Token": campaign.api.adminToken } : {}), ...options.headers },
     ...options
   });
-  if (!response.ok) throw new Error(`API ${response.status}`);
+  if (!response.ok) { const error = new Error(`API ${response.status}`); error.status = response.status; throw error; }
   return response.json();
 }
 
@@ -113,9 +118,19 @@ export const leadStore = {
     try { return (await request("/admin/check", { headers: { "X-Operation-Pin": pin } })).ok; }
     catch { return pin === campaign.operationPin; }
   },
+  async validateActivation(code) {
+    try { return (await request(`/activation/${code}`)).available; }
+    catch (error) {
+      if (error.status) return false;
+      const prize = campaign.prizes.find((item) => item.id === campaign.activationCodes?.[code]);
+      const inventory = localStore.inventory();
+      return Boolean(prize) && (prize.stock === null || (inventory[prize.id] || 0) < prize.stock);
+    }
+  },
   async list() { try { return (await request("/leads", { headers: { "X-Operation-Pin": this.operationPin } })).leads; } catch { return localStore.list(); } },
   async inventory() { try { return (await request("/leads", { headers: { "X-Operation-Pin": this.operationPin } })).inventory; } catch { return localStore.inventory(); } },
-  async createB2b(data) { try { return await request("/leads", { method: "POST", body: JSON.stringify(data) }); } catch { return localStore.createB2b(data); } },
+  async createB2b(data) { try { return await request("/leads", { method: "POST", body: JSON.stringify(data) }); } catch (error) { if (error.status) throw error; return localStore.createB2b(data); } },
+  async createConsumer(name) { try { return (await request("/consumers", { method: "POST", body: JSON.stringify({ name }) })).record; } catch (error) { if (error.status) throw error; return localStore.createConsumer(name); } },
   async prepareSpin(id) {
     try { return (await request(`/leads/${id}/prepare`, { method: "POST" })).record.assignedPrize; }
     catch {
@@ -125,7 +140,7 @@ export const leadStore = {
       return localStore.list().find((item) => item.id === id).assignedPrize;
     }
   },
-  async saveSpin(id) { try { return (await request(`/leads/${id}/spin`, { method: "POST" })).record; } catch { return localStore.saveSpin(id); } },
+  async saveSpin(id) { try { return (await request(`/leads/${id}/spin`, { method: "POST" })).record; } catch (error) { if (error.status) throw error; return localStore.saveSpin(id); } },
   async assignPrize(id, prizeId) { try { return (await request(`/leads/${id}/assignment`, { method: "PATCH", headers: { "X-Operation-Pin": this.operationPin }, body: JSON.stringify({ prizeId }) })).record; } catch { return localStore.assignPrize(id, prizeId); } },
   async markRedeemed(id) { try { return (await request(`/leads/${id}/redeem`, { method: "PATCH", headers: { "X-Operation-Pin": this.operationPin } })).record; } catch { return localStore.markRedeemed(id); } },
   reset() { return localStore.reset(); }

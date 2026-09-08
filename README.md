@@ -18,6 +18,8 @@ Aplicativo web mobile-first para o QR Code do stand da Piromax na FENAPI. A expe
 - Consumidor final também gira a roda, sem preencher cadastro; o resultado é sempre o copo Piromax.
 - Um giro por WhatsApp para os perfis B2B. Quem repete o telefone recupera o PASS já criado, sem novo giro.
 - Código único de retirada, painel de operação, confirmação de retirada e exportação CSV.
+- Estoque central com bloqueio automático dos códigos quando o brinde ou o copo incluído se esgota.
+- Cadastro B2B em etapas, com uma pergunta por tela; consumidor informa somente o primeiro nome.
 - Ativação discreta no começo do cadastro B2B: a equipe define o brinde por código antes do giro.
 
 ## Rodar localmente
