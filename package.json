@@ -1,0 +1,13 @@
+{
+  "name": "piromax-pass-fenapi",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "test": "node --test tests/logic.test.mjs",
+    "start": "node server.mjs"
+  }
+}
