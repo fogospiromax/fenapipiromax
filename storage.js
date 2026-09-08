@@ -143,5 +143,6 @@ export const leadStore = {
   async saveSpin(id) { try { return (await request(`/leads/${id}/spin`, { method: "POST" })).record; } catch (error) { if (error.status) throw error; return localStore.saveSpin(id); } },
   async assignPrize(id, prizeId) { try { return (await request(`/leads/${id}/assignment`, { method: "PATCH", headers: { "X-Operation-Pin": this.operationPin }, body: JSON.stringify({ prizeId }) })).record; } catch { return localStore.assignPrize(id, prizeId); } },
   async markRedeemed(id) { try { return (await request(`/leads/${id}/redeem`, { method: "PATCH", headers: { "X-Operation-Pin": this.operationPin } })).record; } catch { return localStore.markRedeemed(id); } },
+  async resetAll() { try { return await request("/admin/reset", { method: "DELETE", headers: { "X-Operation-Pin": this.operationPin } }); } catch (error) { if (error.status) throw error; localStore.reset(); return { ok: true }; } },
   reset() { return localStore.reset(); }
 };

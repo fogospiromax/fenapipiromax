@@ -20,6 +20,7 @@ Aplicativo web mobile-first para o QR Code do stand da Piromax na FENAPI. A expe
 - Código único de retirada, painel de operação, confirmação de retirada e exportação CSV.
 - Estoque central com bloqueio automático dos códigos quando o brinde ou o copo incluído se esgota.
 - Cadastro B2B em etapas, com uma pergunta por tela; consumidor informa somente o primeiro nome.
+- Área de operação com limpeza confirmada dos dados de teste antes da abertura da ação.
 - Ativação discreta no começo do cadastro B2B: a equipe define o brinde por código antes do giro.
 
 ## Rodar localmente

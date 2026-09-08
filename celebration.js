@@ -35,7 +35,7 @@ export function wheelAngle(index, count) {
 export function wheelScene(prizes) {
   const step = 360 / prizes.length;
   const gradient = prizes.map((_, i) => `${palette[i % palette.length]} ${i * step}deg ${(i + 1) * step}deg`).join(",");
-  return `<div class="wheel-wrap"><div class="pointer" aria-hidden="true">▼</div><div class="wheel" style="--rotation:0deg;background:conic-gradient(${gradient})">${prizes.map((item, index) => `<span class="wheel-symbol" style="--angle:${(index + .5) * step}deg" title="${item.shortName}">${item.icon}</span>`).join("")}</div><div class="wheel-center"><img src="assets/logo-piromax-small.png" alt="Piromax" /></div></div>`;
+  return `<div class="wheel-wrap"><div class="pointer" aria-hidden="true">▼</div><div class="wheel" style="--rotation:0deg;background:conic-gradient(${gradient})" aria-label="Roda Piromax"></div><div class="wheel-center"><img src="assets/logo-piromax-small.png" alt="Piromax" /></div></div>`;
 }
 
 export async function playSpin(wheel, index, count) {

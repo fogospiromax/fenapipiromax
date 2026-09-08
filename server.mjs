@@ -48,6 +48,10 @@ const server = createServer(async (request, response) => {
 
   if (url.pathname === "/api/health") return json(response, 200, { ok: true, campaign: campaign.id });
   if (url.pathname === "/api/admin/check") return json(response, isOperation(request) ? 200 : 401, { ok: isOperation(request) });
+  if (url.pathname === "/api/admin/reset" && method === "DELETE") {
+    if (!isOperation(request)) return json(response, 401, { error: "Operação não autorizada" });
+    await save({ leads: [], inventory: {} }); return json(response, 200, { ok: true });
+  }
   const activation = url.pathname.match(/^\/api\/activation\/(\d{3})$/);
   if (activation && method === "GET") {
     const database = await data(); const prize = findPrize(campaign.activationCodes?.[activation[1]]);
