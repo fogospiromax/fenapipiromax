@@ -24,7 +24,7 @@ export const campaign = {
   },
   prizes: [
     { id: "mug", name: "Caneca exclusiva Piromax", shortName: "Caneca exclusiva", icon: "☕", image: "assets/caneca-piromax-small.png", weight: 10, stock: 24 },
-    { id: "tool_bag", name: "Bolsa porta-ferramentas Piromax", shortName: "Bolsa porta-ferramentas", icon: "🎒", weight: 3, stock: 8 },
+    { id: "tool_bag", name: "Bolsa porta-ferramentas Piromax", shortName: "Bolsa porta-ferramentas", icon: "🎒", weight: 3, stock: 200 },
     { id: "cap", name: "Boné Piromax", shortName: "Boné Piromax", icon: "🧢", weight: 12, stock: 36 },
     { id: "kit", name: "Kit Piromax", shortName: "Kit Piromax", icon: "🎁", weight: 8, stock: 20 },
     { id: "shirt_white", name: "Camiseta exclusiva Piromax", shortName: "Camiseta Piromax", icon: "👕", image: "assets/camiseta-branca-piromax-small.png", weight: 7, stock: 16 },
